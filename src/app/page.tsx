@@ -1,103 +1,160 @@
-import Image from "next/image";
+import Layout from '@/components/Layout';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Link from 'next/link';
 
-export default function Home() {
+export default function HomePage() {
+  // For now, we'll simulate different roles - later this will come from authentication
+  const mockUserRole = 'sales'; // This will be dynamic based on user authentication
+  const mockUserName = 'John Doe';
+
+  const getRoleContent = (role: string) => {
+    switch (role) {
+      case 'sales':
+        return {
+          title: 'Welcome, Sales Team! 🎯',
+          subtitle: 'Upload your client calls and let AI transform them into actionable insights.',
+          features: [
+            { icon: '📤', title: 'Upload Audio', description: 'Upload client call recordings' },
+            { icon: '⏱️', title: 'Quick Processing', description: 'AI processes your files in minutes' },
+            { icon: '📋', title: 'Track History', description: 'View all your uploads and summaries' }
+          ],
+          primaryAction: { href: '/upload', label: 'Upload Audio File' },
+          secondaryAction: { href: '/history', label: 'View History' }
+        };
+      case 'pm':
+        return {
+          title: 'Welcome, Project Manager! 📊',
+          subtitle: 'Review AI summaries and create tasks for your development team.',
+          features: [
+            { icon: '📊', title: 'AI Summaries', description: 'Review processed call summaries' },
+            { icon: '✅', title: 'Task Management', description: 'Create and assign tasks to developers' },
+            { icon: '📈', title: 'Dashboard', description: 'Monitor project progress and insights' }
+          ],
+          primaryAction: { href: '/summaries', label: 'View Summaries' },
+          secondaryAction: { href: '/tasks', label: 'Manage Tasks' }
+        };
+      case 'dev':
+        return {
+          title: 'Welcome, Developer! 💻',
+          subtitle: 'View your assigned tasks and track your progress.',
+          features: [
+            { icon: '✅', title: 'My Tasks', description: 'View tasks assigned to you' },
+            { icon: '🔄', title: 'Update Status', description: 'Mark tasks as in-progress or completed' },
+            { icon: '📈', title: 'Dashboard', description: 'Track your productivity and progress' }
+          ],
+          primaryAction: { href: '/tasks', label: 'View My Tasks' },
+          secondaryAction: { href: '/dashboard', label: 'View Dashboard' }
+        };
+      default:
+        return {
+          title: 'Welcome to BridgeSync AI! 🚀',
+          subtitle: 'AI-powered workflow management for your team.',
+          features: [
+            { icon: '🎯', title: 'Smart Processing', description: 'AI transforms audio into insights' },
+            { icon: '👥', title: 'Team Collaboration', description: 'Seamless workflow between roles' },
+            { icon: '📊', title: 'Analytics', description: 'Track progress and productivity' }
+          ],
+          primaryAction: { href: '/upload', label: 'Get Started' },
+          secondaryAction: { href: '/dashboard', label: 'View Dashboard' }
+        };
+    }
+  };
+
+  const content = getRoleContent(mockUserRole);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <Layout userRole={mockUserRole as any} userName={mockUserName}>
+      <div className="max-w-6xl mx-auto">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4">{content.title}</h1>
+          <p className="text-xl text-gray-600 mb-8">{content.subtitle}</p>
+          
+          <div className="flex gap-4 justify-center mb-8">
+            <Link href={content.primaryAction.href}>
+              <Button size="lg" className="btn-primary">
+                {content.primaryAction.label}
+              </Button>
+            </Link>
+            <Link href={content.secondaryAction.href}>
+              <Button variant="secondary" size="lg">
+                {content.secondaryAction.label}
+              </Button>
+            </Link>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {/* Features Grid */}
+        <div className="grid md:grid-cols-3 gap-6 mb-12">
+          {content.features.map((feature, index) => (
+            <Card key={index} className="text-center">
+              <div className="text-4xl mb-4">{feature.icon}</div>
+              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+              <p className="text-gray-600">{feature.description}</p>
+            </Card>
+          ))}
+        </div>
+
+        {/* Quick Stats */}
+        <Card title="Quick Stats" className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">2,847</div>
+              <div className="text-sm text-gray-600">Files Processed</div>
+              <div className="text-xs text-green-600">↗︎ 400 (22%)</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">1,234</div>
+              <div className="text-sm text-gray-600">Tasks Created</div>
+              <div className="text-xs text-green-600">↗︎ 90 (14%)</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cyan-600">98%</div>
+              <div className="text-sm text-gray-600">Completion Rate</div>
+              <div className="text-xs text-green-600">↗︎ 2% (1%)</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card title="Recent Activity">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-gray-100 rounded-lg">
+              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center">
+                <span className="text-sm font-bold">JD</span>
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">New audio file uploaded</p>
+                <p className="text-sm text-gray-600">client_call_2024_01_15.mp3</p>
+              </div>
+              <span className="text-sm text-gray-500">2 hours ago</span>
+            </div>
+            
+            <div className="flex items-center gap-4 p-4 bg-gray-100 rounded-lg">
+              <div className="w-12 h-12 bg-purple-600 text-white rounded-full flex items-center justify-center">
+                <span className="text-sm font-bold">PM</span>
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">Task assigned to development team</p>
+                <p className="text-sm text-gray-600">Implement new feature based on client feedback</p>
+              </div>
+              <span className="text-sm text-gray-500">4 hours ago</span>
+            </div>
+            
+            <div className="flex items-center gap-4 p-4 bg-gray-100 rounded-lg">
+              <div className="w-12 h-12 bg-cyan-600 text-white rounded-full flex items-center justify-center">
+                <span className="text-sm font-bold">DEV</span>
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">Task completed</p>
+                <p className="text-sm text-gray-600">Bug fix for user authentication</p>
+              </div>
+              <span className="text-sm text-gray-500">6 hours ago</span>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </Layout>
   );
 }
