@@ -1,23 +1,18 @@
 import { ButtonHTMLAttributes } from 'react';
 
-interface ButtonProps {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'accent' | 'ghost' | 'link';
   size?: 'xs' | 'sm' | 'md' | 'lg';
-  disabled?: boolean;
   loading?: boolean;
-  onClick?: () => void;
-  className?: string;
 }
 
 export default function Button({
   children,
   variant = 'primary',
   size = 'md',
-  disabled = false,
   loading = false,
-  onClick,
-  className = ''
+  ...props
 }: ButtonProps) {
   const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
   
@@ -36,13 +31,13 @@ export default function Button({
     lg: 'px-6 py-3 text-base'
   };
 
-  const disabledClasses = disabled || loading ? 'opacity-50 cursor-not-allowed' : '';
+  const disabledClasses = props.disabled || loading ? 'opacity-50 cursor-not-allowed' : '';
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabledClasses} ${className}`}
-      onClick={onClick}
-      disabled={disabled || loading}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabledClasses} ${props.className ?? ''}`}
+      disabled={props.disabled || loading}
+      {...props}
     >
       {loading && (
         <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">

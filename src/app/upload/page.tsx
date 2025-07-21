@@ -1,58 +1,94 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Layout from '@/components/Layout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase';
 
 export default function UploadPage() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'completed' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type.startsWith('audio/')) {
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        alert('Please select an audio file');
+        return;
+      }
       setSelectedFile(file);
-    } else {
-      alert('Please select an audio file');
     }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) {
-      alert('Please select an audio file');
-      return;
-    }
-
+    if (!selectedFile) return;
     setIsUploading(true);
     setUploadStatus('uploading');
     setUploadProgress(0);
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          setUploadStatus('completed');
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
+    // 1. Get current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) {
+      alert('User not logged in');
+      setIsUploading(false);
+      setUploadStatus('error');
+      return;
+    }
 
-    // Simulate processing
-    setTimeout(() => {
-      setUploadStatus('processing');
-    }, 3000);
+    // 2. Create file path: user_id/filename
+    const filePath = `${user.id}/${selectedFile.name}`;
+
+    // 3. Upload to storage bucket (private bucket recommended)
+    const { error: uploadError } = await supabase.storage
+      .from('audio-files')
+      .upload(filePath, selectedFile);
+    if (uploadError) {
+      alert('Upload failed: ' + uploadError.message);
+      setIsUploading(false);
+      setUploadStatus('error');
+      return;
+    }
+
+    // 4. Insert row in audio_uploads table (store file_path, not public URL)
+    const { error: insertError } = await supabase.from('audio_uploads').insert([
+      {
+        user_id: user.id,
+        file_path: filePath,
+        filename: selectedFile.name,
+        status: 'processing',
+      },
+    ]);
+    if (insertError) {
+      alert('Insert failed: ' + insertError.message);
+      setIsUploading(false);
+      setUploadStatus('error');
+      return;
+    }
+
+    alert('Upload successful!');
+    setSelectedFile(null);
+    setIsUploading(false);
+    setUploadStatus('completed');
+    setUploadProgress(100);
   };
 
-  const handleReset = () => {
-    setSelectedFile(null);
-    setUploadProgress(0);
-    setUploadStatus('idle');
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('audio/')) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
   };
 
   const getStatusMessage = () => {
@@ -60,13 +96,13 @@ export default function UploadPage() {
       case 'uploading':
         return 'Uploading your audio file...';
       case 'processing':
-        return 'Processing audio with AI...';
+        return 'Processing with AI...';
       case 'completed':
-        return 'Upload completed successfully!';
+        return 'Upload completed! Your file is being processed.';
       case 'error':
         return 'Upload failed. Please try again.';
       default:
-        return 'Ready to upload';
+        return 'Select an audio file to upload';
     }
   };
 
@@ -74,161 +110,179 @@ export default function UploadPage() {
     <Layout userRole="sales" userName="John Doe">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Upload Audio</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold mb-2">Upload Audio File</h1>
+          <p className="text-base-content/70">
             Upload your client call recordings and let AI transform them into actionable insights.
           </p>
         </div>
 
-        <Card title="Upload Audio" subtitle="Drag and drop or click to select">
-          <div className="space-y-6">
-            {/* File Upload Area */}
-            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Upload Area */}
+          <Card title="Upload Audio" subtitle="Drag and drop or click to select">
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                selectedFile ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary'
+              }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="text-6xl mb-4">🎤</div>
+              <p className="text-lg font-semibold mb-2">
+                {selectedFile ? selectedFile.name : 'Drop audio file here'}
+              </p>
+              <p className="text-base-content/70 mb-4">
+                {selectedFile 
+                  ? `File size: ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
+                  : 'or click to browse'
+                }
+              </p>
+              
+              {uploadStatus === 'uploading' && (
+                <div className="w-full bg-base-200 rounded-full h-2 mb-4">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              )}
+
+              <p className="text-sm text-base-content/70">{getStatusMessage()}</p>
+              
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="audio/*"
                 onChange={handleFileSelect}
                 className="hidden"
-                id="file-upload"
               />
-              <label
-                htmlFor="file-upload"
-                className={`cursor-pointer block ${
-                  selectedFile ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-500'
-                }`}
-              >
-                <div className="space-y-4">
-                  <div className="text-4xl">📁</div>
-                  <div>
-                    <p className="text-lg font-medium">
-                      {selectedFile ? selectedFile.name : 'Click to select audio file'}
-                    </p>
-                    <p className="text-gray-600">
-                      {selectedFile ? 'File selected successfully' : 'Supports MP3, WAV, M4A files'}
-                    </p>
-                  </div>
-                </div>
-              </label>
             </div>
 
-            {/* Upload Progress */}
-            {uploadStatus === 'uploading' && (
-              <div className="space-y-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-gray-600">{getStatusMessage()}</p>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 mt-6">
               <Button
                 onClick={handleUpload}
                 loading={isUploading}
                 disabled={!selectedFile || isUploading}
                 className="flex-1"
               >
-                {uploadStatus === 'completed' ? 'Upload Again' : 'Upload File'}
+                {uploadStatus === 'completed' ? 'Upload Complete' : 'Upload & Process'}
               </Button>
-              <Button
-                variant="ghost"
-                onClick={handleReset}
-                disabled={isUploading}
-              >
-                Reset
-              </Button>
+              
+              {selectedFile && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setUploadStatus('idle');
+                    setUploadProgress(0);
+                  }}
+                  disabled={isUploading}
+                >
+                  Clear
+                </Button>
+              )}
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card title="How it works" subtitle="Your audio file goes through this process" className="mt-8">
-          <div className="grid md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold mx-auto mb-2">
-                1
+          {/* Instructions */}
+          <Card title="How it works" subtitle="Your audio file goes through this process">
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-primary text-primary-content rounded-full flex items-center justify-center text-sm font-bold">
+                  1
+                </div>
+                <div>
+                  <h4 className="font-semibold">Upload Audio</h4>
+                  <p className="text-sm text-base-content/70">
+                    Upload your client call recording (MP3, WAV, M4A supported)
+                  </p>
+                </div>
               </div>
-              <h3 className="font-semibold mb-1">Upload</h3>
-              <p className="text-sm text-gray-600">
-                Select your audio file and upload it securely
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mx-auto mb-2">
-                2
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-secondary text-secondary-content rounded-full flex items-center justify-center text-sm font-bold">
+                  2
+                </div>
+                <div>
+                  <h4 className="font-semibold">AI Transcription</h4>
+                  <p className="text-sm text-base-content/70">
+                    AssemblyAI converts your audio to accurate text
+                  </p>
+                </div>
               </div>
-              <h3 className="font-semibold mb-1">Process</h3>
-              <p className="text-sm text-gray-600">
-                AI transcribes and analyzes your audio content
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-8 h-8 bg-cyan-600 text-white rounded-full flex items-center justify-center text-sm font-bold mx-auto mb-2">
-                3
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-accent text-accent-content rounded-full flex items-center justify-center text-sm font-bold">
+                  3
+                </div>
+                <div>
+                  <h4 className="font-semibold">AI Summary</h4>
+                  <p className="text-sm text-base-content/70">
+                    OpenAI creates actionable insights and key points
+                  </p>
+                </div>
               </div>
-              <h3 className="font-semibold mb-1">Summarize</h3>
-              <p className="text-sm text-gray-600">
-                Generate key insights and action items
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold mx-auto mb-2">
-                4
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-success text-success-content rounded-full flex items-center justify-center text-sm font-bold">
+                  4
+                </div>
+                <div>
+                  <h4 className="font-semibold">Task Creation</h4>
+                  <p className="text-sm text-base-content/70">
+                    PMs can create tasks from the generated insights
+                  </p>
+                </div>
               </div>
-              <h3 className="font-semibold mb-1">Deliver</h3>
-              <p className="text-sm text-gray-600">
-                Get your processed results in minutes
-              </p>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
+        {/* Recent Uploads */}
         <Card title="Recent Uploads" className="mt-8">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 text-sm">✓</span>
-                </div>
-                <div>
-                  <p className="font-medium">client_call_2024_01_15.mp3</p>
-                  <p className="text-sm text-gray-600">Uploaded 2 hours ago</p>
-                </div>
-              </div>
-              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Completed</span>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <span className="text-yellow-600 text-sm">⏳</span>
-                </div>
-                <div>
-                  <p className="font-medium">sales_meeting_2024_01_14.mp3</p>
-                  <p className="text-sm text-gray-600">Uploaded 4 hours ago</p>
-                </div>
-              </div>
-              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Processing</span>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 text-sm">✓</span>
-                </div>
-                <div>
-                  <p className="font-medium">demo_call_2024_01_13.mp3</p>
-                  <p className="text-sm text-gray-600">Uploaded 1 day ago</p>
-                </div>
-              </div>
-              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Completed</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Upload Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>client_call_2024_01_15.mp3</td>
+                  <td>Jan 15, 2024</td>
+                  <td>
+                    <span className="badge badge-success">Completed</span>
+                  </td>
+                  <td>
+                    <Button variant="ghost" size="sm">View Summary</Button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>sales_demo_2024_01_14.mp3</td>
+                  <td>Jan 14, 2024</td>
+                  <td>
+                    <span className="badge badge-warning">Processing</span>
+                  </td>
+                  <td>
+                    <Button variant="ghost" size="sm" disabled>View Summary</Button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>client_feedback_2024_01_13.mp3</td>
+                  <td>Jan 13, 2024</td>
+                  <td>
+                    <span className="badge badge-success">Completed</span>
+                  </td>
+                  <td>
+                    <Button variant="ghost" size="sm">View Summary</Button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>
